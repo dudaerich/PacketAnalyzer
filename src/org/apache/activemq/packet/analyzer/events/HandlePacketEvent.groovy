@@ -8,13 +8,6 @@ import org.apache.activemq.packet.analyzer.Colors
  */
 class HandlePacketEvent extends Event {
 
-    String packetType
-
-    String packetTypeNumber
-
-    String channelID
-
-
     @Override
     String toString() {
         return Colors.getColor(participant.color) + time.format("HH:mm:ss,SSS") +" Handling " +
@@ -22,5 +15,16 @@ class HandlePacketEvent extends Event {
                 "packetType='" + packetType + '\', ' +
                 "packetTypeNumber='" + packetTypeNumber + '\', ' +
                 "channelID='" + channelID + '\''
+    }
+
+    String toHtml() {
+        def fields = [
+                time.format("HH:mm:ss,SSS"),
+                'Handling',
+                "packetType='$packetType'",
+                "packetTypeNumber='$packetTypeNumber'",
+                "channelID='$channelID'"
+        ]
+        return "<tr style=\"color: ${participant.color};\">" + fields.collect { "<td>$it</td>" }.join() + "</tr>"
     }
 }

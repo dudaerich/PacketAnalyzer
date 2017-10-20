@@ -3,6 +3,10 @@ package org.apache.activemq.packet.analyzer
 import org.apache.activemq.packet.analyzer.events.HandlePacketEvent
 import org.apache.activemq.packet.analyzer.events.SendPacketEvent
 
+import java.util.concurrent.BlockingQueue
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
+
 class Participant {
 
     def sendPacketRegex = [
@@ -27,7 +31,7 @@ class Participant {
 
     String color
 
-    def events = []
+    def events = Collections.synchronizedList([])
 
     Participant(String color) {
         this.color = color
@@ -35,77 +39,110 @@ class Participant {
 
     void readLog(InputStream is) {
 
-        is.eachLine { line ->
+        int numberOfProcessors = Runtime.getRuntime().availableProcessors()
+        int numberOfWorkers = numberOfProcessors - 1
 
+        BlockingQueue<String> queue = new LinkedBlockingQueue<>(numberOfWorkers * 500)
 
-            for (def regex : sendPacketRegex) {
-                def matcher = (line =~ regex)
+        // prepare workers
+        def workers = []
 
-                if (matcher) {
-                    def event = new SendPacketEvent()
-                    event.setTime(matcher[0][1])
-                    event.setLogger(matcher[0][2])
-                    event.setThread(matcher[0][3])
-                    event.setBlocking(matcher[0][4])
-                    event.setPacketType(matcher[0][5])
-                    event.setPacketTypeNumber(matcher[0][6])
-                    event.setChannelID(matcher[0][7])
-                    event.setParticipant(this)
-                    events.add(event)
-                    return
+        for (int i = 0; i < numberOfWorkers; i++) {
+            workers << new Worker(participant: this, queue: queue)
+        }
+        workers.forEach { it.start() }
+
+        is.eachLine { queue.put(it) }
+
+        workers.forEach { it.join() }
+    }
+
+    class Worker extends Thread {
+
+        Participant participant
+        BlockingQueue queue
+
+        @Override
+        void run() {
+            def line
+            while ((line = queue.poll(5, TimeUnit.SECONDS)) != null) {
+
+                try {
+                    for (def regex : sendPacketRegex) {
+                        def matcher = (line =~ regex)
+
+                        if (matcher) {
+                            def event = new SendPacketEvent()
+                            event.setTime(matcher[0][1])
+                            event.setLogger(matcher[0][2])
+                            event.setThread(matcher[0][3])
+                            event.setBlocking(matcher[0][4])
+                            event.setPacketType(matcher[0][5])
+                            event.setPacketTypeNumber(matcher[0][6])
+                            event.setChannelID(matcher[0][7])
+                            event.setParticipant(participant)
+                            events.add(event)
+                            continue
+                        }
+                    }
+
+                    for (def regex : handlePacketRegex) {
+                        def matcher = (line =~ regex)
+
+                        if (matcher) {
+                            def event = new HandlePacketEvent()
+                            event.setTime(matcher[0][1])
+                            event.setLogger(matcher[0][2])
+                            event.setThread(matcher[0][3])
+                            event.setPacketType(matcher[0][4])
+                            event.setPacketTypeNumber(matcher[0][5])
+                            event.setChannelID(matcher[0][6])
+                            event.setParticipant(participant)
+                            events.add(event)
+                            continue
+                        }
+                    }
+
+                    for (def regex : sendPacketClientRegex) {
+                        def matcher = (line =~ regex)
+
+                        if (matcher) {
+                            def event = new SendPacketEvent()
+                            event.setTime(matcher[0][1])
+                            event.setThread(matcher[0][2])
+                            event.setLogger(matcher[0][3].replaceAll(/:\d+$/, ""))
+                            event.setBlocking(matcher[0][4])
+                            event.setPacketType(matcher[0][5])
+                            event.setPacketTypeNumber(matcher[0][6])
+                            event.setChannelID(matcher[0][7])
+                            event.setParticipant(participant)
+                            events.add(event)
+                            continue
+                        }
+                    }
+
+                    for (def regex : handlePacketClientRegex) {
+                        def matcher = (line =~ regex)
+
+                        if (matcher) {
+                            def event = new HandlePacketEvent()
+                            event.setTime(matcher[0][1])
+                            event.setThread(matcher[0][2])
+                            event.setLogger(matcher[0][3].replaceAll(/:\d+$/, ""))
+                            event.setPacketType(matcher[0][4])
+                            event.setPacketTypeNumber(matcher[0][5])
+                            event.setChannelID(matcher[0][6])
+                            event.setParticipant(participant)
+                            events.add(event)
+                            continue
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println "Error during processing line $line - $e"
+                    e.printStackTrace(System.err)
                 }
-            }
 
-            for (def regex : handlePacketRegex) {
-                def matcher = (line =~ regex)
 
-                if (matcher) {
-                    def event = new HandlePacketEvent()
-                    event.setTime(matcher[0][1])
-                    event.setLogger(matcher[0][2])
-                    event.setThread(matcher[0][3])
-                    event.setPacketType(matcher[0][4])
-                    event.setPacketTypeNumber(matcher[0][5])
-                    event.setChannelID(matcher[0][6])
-                    event.setParticipant(this)
-                    events.add(event)
-                    return
-                }
-            }
-
-            for (def regex : sendPacketClientRegex) {
-                def matcher = (line =~ regex)
-
-                if (matcher) {
-                    def event = new SendPacketEvent()
-                    event.setTime(matcher[0][1])
-                    event.setThread(matcher[0][2])
-                    event.setLogger(matcher[0][3].replaceAll(/:\d+$/, ""))
-                    event.setBlocking(matcher[0][4])
-                    event.setPacketType(matcher[0][5])
-                    event.setPacketTypeNumber(matcher[0][6])
-                    event.setChannelID(matcher[0][7])
-                    event.setParticipant(this)
-                    events.add(event)
-                    return
-                }
-            }
-
-            for (def regex : handlePacketClientRegex) {
-                def matcher = (line =~ regex)
-
-                if (matcher) {
-                    def event = new HandlePacketEvent()
-                    event.setTime(matcher[0][1])
-                    event.setThread(matcher[0][2])
-                    event.setLogger(matcher[0][3].replaceAll(/:\d+$/, ""))
-                    event.setPacketType(matcher[0][4])
-                    event.setPacketTypeNumber(matcher[0][5])
-                    event.setChannelID(matcher[0][6])
-                    event.setParticipant(this)
-                    events.add(event)
-                    return
-                }
             }
         }
     }

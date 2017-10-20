@@ -18,28 +18,9 @@ for (Participant participant : participants) {
     events.addAll(participant.events)
 }
 
-//def filters = [
-//        { it.packetType == 'ReplicationStartSyncMessage' && it.logger != 'org.apache.activemq.artemis.core.protocol.core.impl.RemotingConnectionImpl' }, // this packet is logged twice
-//        { it.packetType == 'ReplicationResponseMessageV2' },
-//        { it.packetType == 'ReplicationResponseMessage' },
-//        { it.packetType == 'ReplicationSyncFileMessage' },
-//        { it.packetType == 'ReplicationLargeMessageWriteMessage' },
-//]
-
-//def filters = [
-//        { it.packetType == 'SessionReceiveMessage' && it.channelID == '11' },
-//        { it.packetType == 'SessionSendMessage' && it.channelID == '11' },
-//        { it.packetType == 'SessionAcknowledgeMessage' && it.channelID == '11' },
-//        { it.packetType == 'NullResponseMessage' && it.channelID == '11' },
-//        { it.packetTypeNumber == '43' && it.channelID == '11' },
-//        { it.packetType == 'SessionConsumerFlowCreditMessage' && it.channelID == '11' },
-//        { it.packetType == 'SessionAddMetaDataMessageV2' && it.channelID == '11' },
-//        { it.packetType == 'SessionBindingQueryMessage' && it.channelID == '11' },
-//        { it.packetType == 'SessionBindingQueryResponseMessage_V3' && it.channelID == '11' },
-//]
-
 def filters = [
-        { it.channelID == '11' }
+        { it.channelIDInt == 2 },
+        { it.channelIDInt >= 10 }
 ]
 
 events = events.findAll {
@@ -51,8 +32,31 @@ events = events.findAll {
 
 events.sort { it.time }
 
+println """<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Packet Analyzer output</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+    <style>
+      td {
+        font-size: 9px;
+        font-family: monospace;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+  <table class="table table-condensed">
+"""
+
 for (Event e : events) {
-    println e
+    println e.toHtml()
 }
 
-println "${(char)27}[0m"
+println """
+  </table>
+  </body>
+</html>
+"""

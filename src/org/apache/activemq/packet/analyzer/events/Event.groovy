@@ -6,7 +6,7 @@ import java.text.SimpleDateFormat
 
 class Event {
 
-    final static SimpleDateFormat formatter = new SimpleDateFormat("HH:mm:ss,SSS")
+    final SimpleDateFormat formatter = new SimpleDateFormat("HH:mm:ss,SSS")
 
     Date time
 
@@ -14,10 +14,20 @@ class Event {
 
     String thread
 
+    String channelID
+
+    String packetType
+
+    String packetTypeNumber
+
     Participant participant
 
     void setTime(String t) {
         time = formatter.parse(t)
+    }
+
+    Integer getChannelIDInt() {
+        channelID?.toInteger()
     }
 
 }

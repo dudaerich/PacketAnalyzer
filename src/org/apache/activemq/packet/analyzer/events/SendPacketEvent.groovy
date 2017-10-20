@@ -4,13 +4,7 @@ import org.apache.activemq.packet.analyzer.Colors
 
 class SendPacketEvent extends Event {
 
-    String packetType
-
-    String packetTypeNumber
-
     String blocking
-
-    String channelID
 
     @Override
     String toString() {
@@ -20,6 +14,17 @@ class SendPacketEvent extends Event {
                 "packetTypeNumber='" + packetTypeNumber + '\', ' +
                 "blocking='" + blocking + '\', ' +
                 "channelID='" + channelID + '\''
+    }
+
+    String toHtml() {
+        def fields = [
+                time.format("HH:mm:ss,SSS"),
+                'Sending',
+                "packetType='$packetType'",
+                "packetTypeNumber='$packetTypeNumber'",
+                "channelID='$channelID'"
+        ]
+        return "<tr style=\"color: ${participant.color};\">" + fields.collect { "<td>$it</td>" }.join() + "</tr>"
     }
 
 }
